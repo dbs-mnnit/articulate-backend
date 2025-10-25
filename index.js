@@ -12,7 +12,8 @@ import cors from 'cors';
 const PORT = process.env.ARTICULATE_PORT || 3000;
 
 
-app.use(cors());
+app.use(cors({ origin: "*" }));
+
 
 // Connect to the database
 connectDB();
