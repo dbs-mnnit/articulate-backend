@@ -32,7 +32,7 @@ app.use(
   })
 );
 
-app.options("*", cors()); // handle preflight
+
 
 
 // Connect to the database
