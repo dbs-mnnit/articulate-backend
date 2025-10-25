@@ -12,7 +12,27 @@ import cors from 'cors';
 const PORT = process.env.ARTICULATE_PORT || 3000;
 
 
-app.use(cors({ origin: "*" }));
+const allowedOrigins = [
+  "https://articulate-9lprwve66-digvijay-bahadur-singhs-projects.vercel.app",
+  "http://localhost:5173", // optional, for local dev
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log("❌ Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true, // if you use cookies / Authorization headers
+  })
+);
+
+app.options("*", cors()); // handle preflight
 
 
 // Connect to the database
