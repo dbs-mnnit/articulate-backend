@@ -110,10 +110,10 @@ class ThoughtsService {
 
   async permanentDeleteThought(id, userId) {
     const thought = await thoughtsRepo.permanentDeleteThought(id, userId);
-    for (const url of thought.media) {
-      const filePath = new URL(url).pathname.slice(1);
-      await imagekit.deleteFileByPath(filePath);
-    }
+    // for (const url of thought.media) {
+    //   const filePath = new URL(url).pathname.slice(1);
+    //   await imagekit.deleteFileByPath(filePath);
+    // }
     return thought;
   }
 

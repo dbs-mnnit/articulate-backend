@@ -1,35 +1,491 @@
+// import authService from "./authService.js";
+// import createError from "http-errors";
+// import { body, validationResult } from "express-validator";
+// import validator from "validator";
+// import passport from "../../configs/passportConfig.js";
+
+// class AuthController {
+//   async register(req, res, next) {
+//     try {
+//       // Two modes:
+//       // 1. Google signup (google_credential only)
+//       // 2. Classic signup (first_name, last_name, phone_country_code, phone_number, email, password, role)
+
+//       if (req.body.google_credential) {
+//         // Validate google_credential exists
+//         await body("google_credential")
+//           .notEmpty()
+//           .withMessage("Google credential required")
+//           .run(req);
+//       } else {
+//         // Traditional signup validation
+//         await Promise.all([
+//           body("first_name").notEmpty().withMessage("First name is required").run(req),
+//           // last_name is optional now (Google profiles sometimes don't have it)
+//           body("last_name").optional().run(req),
+//           body("phone_country_code")
+//             .optional()
+//             .notEmpty()
+//             .withMessage("Phone Country Code is required")
+//             .run(req),
+//           body("phone_number")
+//             .optional()
+//             .notEmpty()
+//             .withMessage("Phone Number is required")
+//             .run(req),
+//           body("email").isEmail().withMessage("Invalid email format").run(req),
+//           body("password")
+//             .isLength({ min: 8 })
+//             .withMessage("Password must be at least 8 characters")
+//             .run(req),
+//           body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role").run(req),
+//         ]);
+//       }
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const {
+//         first_name,
+//         last_name,
+//         phone_country_code,
+//         phone_number,
+//         email,
+//         password,
+//         role,
+//         google_credential,
+//       } = req.body;
+
+//       const result = await authService.register({
+//         first_name,
+//         last_name,
+//         phone_country_code,
+//         phone_number,
+//         email,
+//         password,
+//         role,
+//         google_credential,
+//       });
+
+//       res.cookie("refreshToken", result.refreshToken, {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === "production",
+//         sameSite: "strict",
+//         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//       });
+
+//       res.status(201).json({
+//         success: true,
+//         data: { user: result.user, accessToken: result.accessToken },
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async login(req, res, next) {
+//     try {
+//       // Two modes:
+//       // 1. Google login (google_credential)
+//       // 2. Traditional login (email + password)
+
+//       if (req.body.google_credential) {
+//         await body("google_credential")
+//           .notEmpty()
+//           .withMessage("Google credential required")
+//           .run(req);
+//       } else {
+//         await Promise.all([
+//           body("email").isEmail().withMessage("Invalid email format").run(req),
+//           body("password").notEmpty().withMessage("Password is required").run(req),
+//         ]);
+//       }
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const { email, password, google_credential } = req.body;
+//       const result = await authService.login({ email, password, google_credential });
+
+//       res.cookie("refreshToken", result.refreshToken, {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === "production",
+//         sameSite: "strict",
+//         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//       });
+
+//       res.json({
+//         success: true,
+//         data: { user: result.user, accessToken: result.accessToken },
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   // PASSPORT FLOW (kept for backward compatibility / web redirect login)
+//   async googleAuth(req, res, next) {
+//     try {
+//       passport.authenticate("google", {
+//         scope: ["profile", "email"],
+//         session: false,
+//       })(req, res, next);
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async googleAuthCallback(req, res, next) {
+//     try {
+//       passport.authenticate("google", { session: false }, async (err, user, info) => {
+//         if (err || !user) {
+//           return res.redirect(
+//             `${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(
+//               info?.message || "Authentication failed"
+//             )}`
+//           );
+//         }
+
+//         const result = await authService.googleLogin(user);
+
+//         res.cookie("refreshToken", result.refreshToken, {
+//           httpOnly: true,
+//           secure: process.env.NODE_ENV === "production",
+//           sameSite: "strict",
+//           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//         });
+
+//         return res.redirect(
+//           `${process.env.FRONTEND_URL}/auth/callback?accessToken=${result.accessToken}`
+//         );
+//       })(req, res, next);
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async refreshToken(req, res, next) {
+//     try {
+//       const refreshToken = req.cookies.refreshToken;
+//       if (!refreshToken) {
+//         throw createError(400, "Refresh token required");
+//       }
+
+//       const result = await authService.refreshToken({ refreshToken });
+
+//       res.cookie("refreshToken", result.refreshToken, {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === "production",
+//         sameSite: "strict",
+//         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+//       });
+
+//       res.json({
+//         success: true,
+//         data: { user: result.user, accessToken: result.accessToken },
+//       });
+//     } catch (error) {
+//       res.clearCookie("refreshToken");
+//       next(error);
+//     }
+//   }
+
+//   async logout(req, res, next) {
+//     try {
+//       const refreshToken = req.cookies.refreshToken;
+//       const authHeader = req.headers["authorization"];
+//       const accessToken = authHeader && authHeader.split(" ")[1];
+
+//       if (!refreshToken) {
+//         throw createError(400, "Refresh token required");
+//       }
+
+//       await authService.logout(req.user.id, accessToken, refreshToken);
+//       res.clearCookie("refreshToken");
+
+//       res.json({
+//         success: true,
+//         message: "Logged out successfully",
+//       });
+//     } catch (error) {
+//         next(error);
+//     }
+//   }
+
+//   async getProfile(req, res, next) {
+//     try {
+//       const userId = req.user.id;
+//       const profile = await authService.getProfile(userId);
+//       res.json({
+//         success: true,
+//         data: profile,
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async verifyEmail(req, res, next) {
+//     try {
+//       await Promise.all([
+//         body("otp")
+//           .isNumeric()
+//           .isLength({ min: 6, max: 6 })
+//           .withMessage("OTP must be a 6-digit number")
+//           .run(req),
+//       ]);
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const { otp } = req.body;
+//       const user = await authService.verifyEmail(req.user.id, otp);
+
+//       res.json({
+//         success: true,
+//         data: {
+//           id: user._id,
+//           first_name: user.first_name,
+//           last_name: user.last_name,
+//           email: user.email,
+//           role: user.role,
+//           isEmailVerified: user.isEmailVerified,
+//         },
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async resendVerificationEmail(req, res, next) {
+//     try {
+//       await authService.resendVerificationEmail(req.user.id);
+//       res.json({
+//         success: true,
+//         message: "Verification email resent successfully",
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async forgotPassword(req, res, next) {
+//     try {
+//       await Promise.all([
+//         body("email").isEmail().withMessage("Invalid email format").run(req),
+//       ]);
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const { email } = req.body;
+//       await authService.forgotPassword(email);
+
+//       res.json({
+//         success: true,
+//         message: "Password reset email sent successfully",
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async resetPassword(req, res, next) {
+//     try {
+//       await Promise.all([
+//         body("token").notEmpty().withMessage("Reset token is required").run(req),
+//         body("newPassword")
+//           .isLength({ min: 8 })
+//           .withMessage("New password must be at least 8 characters")
+//           .run(req),
+//       ]);
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const { token, newPassword } = req.body;
+//       await authService.resetPassword(token, newPassword);
+
+//       res.json({
+//         success: true,
+//         message: "Password reset successfully",
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async updateProfile(req, res, next) {
+//     try {
+//       await Promise.all([
+//         body("first_name").optional().notEmpty().withMessage("First name cannot be empty").run(req),
+//         body("last_name").optional().notEmpty().withMessage("Last name cannot be empty").run(req),
+//         body("phone_country_code")
+//           .optional()
+//           .matches(/^\+\d+$/)
+//           .withMessage("Invalid country code format")
+//           .run(req),
+//         body("phone_number")
+//           .optional()
+//           .matches(/^\d+$/)
+//           .withMessage("Invalid phone number format")
+//           .run(req),
+//         body("date_of_birth").optional().isISO8601().withMessage("Invalid date format").run(req),
+//         body("profile_picture")
+//           .optional()
+//           .custom((value) => {
+//             if (value === null || value === "" || validator.isURL(value)) {
+//               return true;
+//             }
+//             throw new Error("Invalid profile picture: must be URL, null, or empty string");
+//           })
+//           .run(req),
+//       ]);
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const updateData = req.body;
+//       const file = req.file;
+//       const user = await authService.updateProfile(req.user.id, updateData, file);
+
+//       res.json({
+//         success: true,
+//         data: user,
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+
+//   async changePassword(req, res, next) {
+//     try {
+//       await Promise.all([
+//         body("oldPassword").notEmpty().withMessage("Current password is required").run(req),
+//         body("newPassword")
+//           .isLength({ min: 8 })
+//           .withMessage("New password must be at least 8 characters")
+//           .run(req),
+//       ]);
+
+//       const errors = validationResult(req);
+//       if (!errors.isEmpty()) {
+//         throw createError(400, errors.array()[0].msg);
+//       }
+
+//       const { oldPassword, newPassword } = req.body;
+//       await authService.changePassword(req.user.id, oldPassword, newPassword);
+
+//       res.json({
+//         success: true,
+//         message: "Password changed successfully",
+//       });
+//     } catch (error) {
+//       next(error);
+//     }
+//   }
+// }
+
+// export default new AuthController();
+
+
 import authService from "./authService.js";
 import createError from "http-errors";
 import { body, validationResult } from "express-validator";
 import validator from "validator";
 import passport from "../../configs/passportConfig.js";
 
+// IANA timezone validator for express-validator .custom()
+function isValidIanaTimeZone(tz) {
+  try {
+    if (typeof tz !== "string" || !tz) return false;
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Pull tz from headers or body
+function extractTimezone(req) {
+  const headerTz =
+    req.headers["x-timezone"] ||
+    req.headers["x-client-timezone"] ||
+    req.headers["x-user-timezone"];
+  return (req.body.timezone || headerTz || "").toString().trim();
+}
+
 class AuthController {
   async register(req, res, next) {
     try {
-      await Promise.all([
-        body("first_name").notEmpty().withMessage("First name is required").run(req),
-        body("last_name").notEmpty().withMessage("Last name is required").run(req),
-        body("phone_country_code").notEmpty().withMessage("Phone Country Code is required").run(req),
-        body("phone_number").notEmpty().withMessage("Phone Number is required").run(req),
-        body("email").isEmail().withMessage("Invalid email format").run(req),
-        body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters").run(req),
-        body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role").run(req),
-      ]);
+      const timezone = extractTimezone(req);
 
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
+      if (req.body.google_credential) {
+        await body("google_credential").notEmpty().withMessage("Google credential required").run(req);
+        if (timezone) {
+          await body("timezone")
+            .custom(isValidIanaTimeZone)
+            .withMessage("Invalid IANA timezone")
+            .run(req);
+        }
+      } else {
+        await Promise.all([
+          body("first_name").notEmpty().withMessage("First name is required").run(req),
+          body("last_name").optional().run(req),
+          body("phone_country_code").optional().notEmpty().run(req),
+          body("phone_number").optional().notEmpty().run(req),
+          body("email").isEmail().withMessage("Invalid email format").run(req),
+          body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters").run(req),
+          body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role").run(req),
+          timezone
+            ? body("timezone").custom(isValidIanaTimeZone).withMessage("Invalid IANA timezone").run(req)
+            : Promise.resolve(),
+        ]);
       }
 
-      const { first_name, last_name, phone_country_code, phone_number, email, password, role } = req.body;
-      const result = await authService.register({ first_name, last_name, phone_country_code, phone_number, email, password, role });
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
+
+      const {
+        first_name,
+        last_name,
+        phone_country_code,
+        phone_number,
+        email,
+        password,
+        role,
+        google_credential,
+      } = req.body;
+
+      const result = await authService.register({
+        first_name,
+        last_name,
+        phone_country_code,
+        phone_number,
+        email,
+        password,
+        role,
+        google_credential,
+        timezone, // NEW
+      });
 
       res.cookie("refreshToken", result.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(201).json({
@@ -43,24 +499,37 @@ class AuthController {
 
   async login(req, res, next) {
     try {
-      await Promise.all([
-        body("email").isEmail().withMessage("Invalid email format").run(req),
-        body("password").notEmpty().withMessage("Password is required").run(req),
-      ]);
+      const timezone = extractTimezone(req);
 
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
+      if (req.body.google_credential) {
+        await body("google_credential").notEmpty().withMessage("Google credential required").run(req);
+        if (timezone) {
+          await body("timezone")
+            .custom(isValidIanaTimeZone)
+            .withMessage("Invalid IANA timezone")
+            .run(req);
+        }
+      } else {
+        await Promise.all([
+          body("email").isEmail().withMessage("Invalid email format").run(req),
+          body("password").notEmpty().withMessage("Password is required").run(req),
+          timezone
+            ? body("timezone").custom(isValidIanaTimeZone).withMessage("Invalid IANA timezone").run(req)
+            : Promise.resolve(),
+        ]);
       }
 
-      const { email, password } = req.body;
-      const result = await authService.login({ email, password });
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
+
+      const { email, password, google_credential } = req.body;
+      const result = await authService.login({ email, password, google_credential, timezone });
 
       res.cookie("refreshToken", result.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.json({
@@ -72,12 +541,10 @@ class AuthController {
     }
   }
 
+  // PASSPORT (legacy)
   async googleAuth(req, res, next) {
     try {
-      passport.authenticate("google", {
-        scope: ["profile", "email"],
-        session: false,
-      })(req, res, next);
+      passport.authenticate("google", { scope: ["profile", "email"], session: false })(req, res, next);
     } catch (error) {
       next(error);
     }
@@ -87,7 +554,9 @@ class AuthController {
     try {
       passport.authenticate("google", { session: false }, async (err, user, info) => {
         if (err || !user) {
-          return res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(info?.message || "Authentication failed")}`);
+          return res.redirect(
+            `${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(info?.message || "Authentication failed")}`
+          );
         }
 
         const result = await authService.googleLogin(user);
@@ -96,10 +565,10 @@ class AuthController {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?accessToken=${result.accessToken}`);
+        return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?accessToken=${result.accessToken}`);
       })(req, res, next);
     } catch (error) {
       next(error);
@@ -109,9 +578,7 @@ class AuthController {
   async refreshToken(req, res, next) {
     try {
       const refreshToken = req.cookies.refreshToken;
-      if (!refreshToken) {
-        throw createError(400, "Refresh token required");
-      }
+      if (!refreshToken) throw createError(400, "Refresh token required");
 
       const result = await authService.refreshToken({ refreshToken });
 
@@ -119,7 +586,7 @@ class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.json({
@@ -138,17 +605,12 @@ class AuthController {
       const authHeader = req.headers["authorization"];
       const accessToken = authHeader && authHeader.split(" ")[1];
 
-      if (!refreshToken) {
-        throw createError(400, "Refresh token required");
-      }
+      if (!refreshToken) throw createError(400, "Refresh token required");
 
       await authService.logout(req.user.id, accessToken, refreshToken);
       res.clearCookie("refreshToken");
 
-      res.json({
-        success: true,
-        message: "Logged out successfully",
-      });
+      res.json({ success: true, message: "Logged out successfully" });
     } catch (error) {
       next(error);
     }
@@ -158,10 +620,7 @@ class AuthController {
     try {
       const userId = req.user.id;
       const profile = await authService.getProfile(userId);
-      res.json({
-        success: true,
-        data: profile,
-      });
+      res.json({ success: true, data: profile });
     } catch (error) {
       next(error);
     }
@@ -169,14 +628,9 @@ class AuthController {
 
   async verifyEmail(req, res, next) {
     try {
-      await Promise.all([
-        body("otp").isNumeric().isLength({ min: 6, max: 6 }).withMessage("OTP must be a 6-digit number").run(req),
-      ]);
-
+      await body("otp").isNumeric().isLength({ min: 6, max: 6 }).withMessage("OTP must be a 6-digit number").run(req);
       const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
-      }
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
 
       const { otp } = req.body;
       const user = await authService.verifyEmail(req.user.id, otp);
@@ -190,6 +644,7 @@ class AuthController {
           email: user.email,
           role: user.role,
           isEmailVerified: user.isEmailVerified,
+          timezone: user.timezone,
         },
       });
     } catch (error) {
@@ -200,33 +655,22 @@ class AuthController {
   async resendVerificationEmail(req, res, next) {
     try {
       await authService.resendVerificationEmail(req.user.id);
-      res.json({
-        success: true,
-        message: "Verification email resent successfully",
-      });
+      res.json({ success: true, message: "Verification email resent successfully" });
     } catch (error) {
       next(error);
     }
   }
 
+
   async forgotPassword(req, res, next) {
     try {
-      await Promise.all([
-        body("email").isEmail().withMessage("Invalid email format").run(req),
-      ]);
-
+      await body("email").isEmail().withMessage("Invalid email format").run(req);
       const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
-      }
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
 
       const { email } = req.body;
       await authService.forgotPassword(email);
-
-      res.json({
-        success: true,
-        message: "Password reset email sent successfully",
-      });
+      res.json({ success: true, message: "Password reset email sent successfully" });
     } catch (error) {
       next(error);
     }
@@ -238,23 +682,32 @@ class AuthController {
         body("token").notEmpty().withMessage("Reset token is required").run(req),
         body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters").run(req),
       ]);
-
       const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
-      }
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
 
       const { token, newPassword } = req.body;
       await authService.resetPassword(token, newPassword);
-
-      res.json({
-        success: true,
-        message: "Password reset successfully",
-      });
+      res.json({ success: true, message: "Password reset successfully" });
     } catch (error) {
       next(error);
     }
   }
+ async verifyResetPasswordToken(req, res, next) {
+  try {
+    
+
+    const { token } = req.query;
+    if(!token){
+      throw createError(404, "Token not found")
+    }
+    await authService.verifyResetPasswordToken(token);
+
+    res.json({ success: true, message: "Token verified successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
 
   async updateProfile(req, res, next) {
     try {
@@ -267,27 +720,26 @@ class AuthController {
         body("profile_picture")
           .optional()
           .custom((value) => {
-            if (value === null || value === "" || validator.isURL(value)) {
-              return true;
-            }
+            if (value === null || value === "" || validator.isURL(value)) return true;
             throw new Error("Invalid profile picture: must be URL, null, or empty string");
           })
+          .run(req),
+        // NEW: allow timezone update explicitly
+        body("timezone")
+          .optional()
+          .custom(isValidIanaTimeZone)
+          .withMessage("Invalid IANA timezone")
           .run(req),
       ]);
 
       const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
-      }
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
 
       const updateData = req.body;
       const file = req.file;
       const user = await authService.updateProfile(req.user.id, updateData, file);
 
-      res.json({
-        success: true,
-        data: user,
-      });
+      res.json({ success: true, data: user });
     } catch (error) {
       next(error);
     }
@@ -299,19 +751,12 @@ class AuthController {
         body("oldPassword").notEmpty().withMessage("Current password is required").run(req),
         body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters").run(req),
       ]);
-
       const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw createError(400, errors.array()[0].msg);
-      }
+      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
 
       const { oldPassword, newPassword } = req.body;
       await authService.changePassword(req.user.id, oldPassword, newPassword);
-
-      res.json({
-        success: true,
-        message: "Password changed successfully",
-      });
+      res.json({ success: true, message: "Password changed successfully" });
     } catch (error) {
       next(error);
     }
