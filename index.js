@@ -15,7 +15,7 @@ const PORT = process.env.ARTICULATE_PORT || 3000;
 
 const allowedOrigins = [
   "https://articulate-9lprwve66-digvijay-bahadur-singhs-projects.vercel.app",
-  "https://articulate-murex.vercel.app/",
+  "https://articulate-murex.vercel.app",
   "http://localhost:5173", // optional, for local dev
   "http://192.168.1.4:5173",
   "http://192.168.1.7:5173",
