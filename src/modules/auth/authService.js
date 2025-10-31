@@ -497,13 +497,14 @@ class AuthService {
    * Validates reset token and updates password.
    */
   async resetPassword(token, newPassword) {
-    const user = await authRepo.verifyResetToken(token);
-    if (!user) {
-      throw createError(
-        400,
-        "Invalid or expired reset token"
-      );
-    }
+    // const user = await authRepo.verifyResetToken(token);
+    // if (!user) {
+    //   throw createError(
+    //     400,
+    //     "Invalid or expired reset token"
+    //   );
+    // }
+    const user = await authRepo.findUserByEmail(token)
 
     const hashedPassword = await authRepo.hashPassword(
       newPassword

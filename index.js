@@ -5,7 +5,8 @@ dotenv.config();
 import connectDB from './src/configs/db.js';
 import authRoutes from './src/modules/auth/authRoutes.js';
 import thoughtsRoutes from './src/modules/thoughts/thoughtsRoutes.js';
-import feedbackRoutes from './src/modules/feedback/feedbackRoutes.js'
+import feedbackRoutes from './src/modules/feedback/feedbackRoutes.js';
+import visitorRoutes from './src/modules/visitor/visitorRoutes.js'
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -17,8 +18,8 @@ const allowedOrigins = [
   "https://articulate-9lprwve66-digvijay-bahadur-singhs-projects.vercel.app",
   "https://articulate-murex.vercel.app",
   "http://localhost:5173", // optional, for local dev
-  "http://192.168.1.4:5173",
   "http://192.168.1.7:5173",
+  "http://192.168.1.4:5173",
   "https://articulate.himansu.in",
   "*"
 ];
@@ -55,7 +56,8 @@ app.use(cookieParser());
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/thoughts', thoughtsRoutes);
-app.use('/api/v1/feedback', feedbackRoutes)
+app.use('/api/v1/feedback', feedbackRoutes);
+app.use('/api/v1/visitors',visitorRoutes)
 
 // Health Check Endpoint
 app.get('/api/v1/health', (req, res) => {
