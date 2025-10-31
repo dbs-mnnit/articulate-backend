@@ -1,140 +1,83 @@
-// configs/awsses.js
-import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import dotenv from "dotenv";
-dotenv.config();
+// config/awsses.js
+// Minimal SES v2 sender used by the app. Validates inputs, supports dry-run,
+// and respects env: AWS_REGION, SES_FROM, SES_CONFIGURATION_SET, SES_REPLY_TO.
+// If you use temporary creds, set AWS_SESSION_TOKEN as well.
 
-const region = process.env.AWS_REGION || "us-east-1";
+import {
+  SESv2Client,
+  SendEmailCommand,
+} from "@aws-sdk/client-sesv2";
 
-const ses = new SESv2Client({
-  region,
-  credentials:
-    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-      ? {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
-        }
-      : undefined,
+// Load .env if present (optional; safe in dev)
+try { require("dotenv").config(); } catch (_) {}
+
+const env = (k, def = "") => (process.env[k] ?? def).toString().trim();
+const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+const REGION = env("AWS_REGION", "us-east-1");
+const SES_FROM = env("SES_FROM"); // e.g. Articulate <noreply@himansu.in>
+assert(SES_FROM, "SES_FROM is required (e.g. Name <sender@domain>)");
+
+const REPLY_TO = env("SES_REPLY_TO") || undefined;
+const CONFIG_SET = env("SES_CONFIGURATION_SET") || undefined;
+
+// If you prefer letting the SDK read env creds automatically, you can omit "credentials" here.
+const client = new SESv2Client({
+  region: REGION,
+  credentials: {
+    accessKeyId: env("AWS_ACCESS_KEY_ID"),
+    secretAccessKey: env("AWS_SECRET_ACCESS_KEY"),
+    
+  },
 });
 
-function asArray(v) {
-  if (!v) return [];
-  return Array.isArray(v) ? v.filter(Boolean) : [v];
-}
-
-function mask(addr) {
-  if (!addr || !addr.includes("@")) return "***";
-  const [u, d] = addr.split("@");
-  return `${(u[0] || "*")}***@${d}`;
-}
-
-function maskList(list) {
-  return asArray(list).map(mask).join(", ");
-}
-
 /**
- * Simple SES sender with very basic console logs
+ * Send an email via SES v2
+ * @param {Object} args
+ * @param {string|string[]} args.to - recipient(s)
+ * @param {string} args.subject
+ * @param {string} [args.text]
+ * @param {string} [args.html]
+ * @param {boolean} [args.dryRun=false] - if true, don't call SES; just echo params
+ * @returns {Promise<{MessageId?: string, dryRun?: boolean}>}
  */
-export async function sendEmail({
-  to,
-  subject,
-  text,
-  html,
-  from,
-  cc,
-  bcc,
-  replyTo,
-  headers,
-  configurationSetName,
-  tags,
-  dryRun = false,
-}) {
-  const fromAddress = from || process.env.SES_FROM;
+export async function sendEmail({ to, subject, text, html, dryRun = false }) {
+  assert(to, "sendEmail: 'to' is required");
+  assert(subject, "sendEmail: 'subject' is required");
+  assert(text || html, "sendEmail: either 'text' or 'html' must be provided");
 
-  // Basic validation with logs
-  if (!to) {
-    console.log("[SES] Missing 'to' field. Abort.");
-    throw new Error("sendEmail: 'to' is required");
-  }
-  if (!subject) {
-    console.log("[SES] Missing 'subject' field. Abort.");
-    throw new Error("sendEmail: 'subject' is required");
-  }
-  if (!fromAddress) {
-    console.log("[SES] Missing 'from' (and SES_FROM not set). Abort.");
-    throw new Error("sendEmail: 'from' or SES_FROM is required");
-  }
+  const toList = Array.isArray(to) ? to : [to];
 
-  const toArr = asArray(to);
-  const ccArr = asArray(cc);
-  const bccArr = asArray(bcc);
-  const replyToArr = asArray(replyTo);
-
-  console.log(`[SES] Region: ${region}`);
-  console.log(`[SES] From: ${mask(fromAddress)}`);
-  console.log(`[SES] To: ${maskList(toArr)}`);
-  if (ccArr.length) console.log(`[SES] CC: ${maskList(ccArr)}`);
-  if (bccArr.length) console.log(`[SES] BCC: ${maskList(bccArr)}`);
-  if (replyToArr.length) console.log(`[SES] Reply-To: ${maskList(replyToArr)}`);
-  console.log(`[SES] Subject: "${subject}"`);
-  console.log(`[SES] Body parts -> html: ${Boolean(html)} text: ${Boolean(text)}`);
-  if (configurationSetName || process.env.SES_CONFIGURATION_SET) {
-    console.log(
-      `[SES] Using configuration set: ${configurationSetName || process.env.SES_CONFIGURATION_SET}`
-    );
-  }
-  if (dryRun) {
-    console.log("[SES] Dry run enabled. Skipping actual send.");
-    return { dryRun: true };
-  }
-
-  const headerList =
-    headers && typeof headers === "object"
-      ? Object.entries(headers).map(([Name, value]) => ({ Name, Value: String(value) }))
-      : undefined;
-
-  const command = new SendEmailCommand({
-    FromEmailAddress: fromAddress,
-    Destination: { ToAddresses: toArr, CcAddresses: ccArr, BccAddresses: bccArr },
-    ReplyToAddresses: replyToArr,
-    EmailTags: Array.isArray(tags) ? tags : undefined,
-    ConfigurationSetName: configurationSetName || process.env.SES_CONFIGURATION_SET || undefined,
+  const params = {
+    FromEmailAddress: SES_FROM,                   // supports "Name <email@domain>"
+    Destination: { ToAddresses: toList },
     Content: {
       Simple: {
         Subject: { Data: subject, Charset: "UTF-8" },
         Body: {
-          ...(html ? { Html: { Data: html, Charset: "UTF-8" } } : {}),
           ...(text ? { Text: { Data: text, Charset: "UTF-8" } } : {}),
+          ...(html ? { Html: { Data: html, Charset: "UTF-8" } } : {}),
         },
-        ...(headerList ? { Headers: headerList } : {}),
       },
     },
-  });
+  };
 
-  console.log("[SES] Sending...");
-  try {
-    const res = await ses.send(command);
-    console.log(
-      `[SES] Sent OK. messageId=${res?.MessageId || "n/a"} httpStatus=${
-        res?.$metadata?.httpStatusCode || "n/a"
-      }`
-    );
-    return res;
-  } catch (err) {
-    console.log(
-      `[SES] Send FAILED. name=${err?.name || "Error"} message=${err?.message || "Unknown"}`
-    );
-    if (err?.$metadata?.requestId) {
-      console.log(`[SES] AWS requestId=${err.$metadata.requestId}`);
-    }
-    // Helpful hints for common issues
-    if (String(err?.message || "").includes("MessageRejected")) {
-      console.log(
-        "[SES] Tip: Check if the recipient or domain is verified, or if your account is still in SES sandbox."
-      );
-    }
-    throw err;
+  if (REPLY_TO) params.ReplyToAddresses = [REPLY_TO];
+  if (CONFIG_SET) params.ConfigurationSetName = CONFIG_SET;
+
+  if (dryRun) {
+    // Useful for unit tests and local dev
+    return { dryRun: true };
   }
+
+  const cmd = new SendEmailCommand(params);
+  const res = await client.send(cmd);
+  return res; // contains MessageId
 }
 
-export default ses;
+// Optional: small helper for masking emails in logs
+export function short(addr) {
+  if (!addr) return "***";
+  const s = Array.isArray(addr) ? addr[0] : addr;
+  return typeof s === "string" ? `${s.split("@")[0] || "*"}@***` : "***";
+}

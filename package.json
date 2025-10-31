@@ -14,7 +14,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.921.0",
     "@aws-sdk/client-sesv2": "^3.920.0",
+    "@aws-sdk/client-sts": "^3.921.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
