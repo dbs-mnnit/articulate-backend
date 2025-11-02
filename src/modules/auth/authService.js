@@ -8,6 +8,7 @@ import { OAuth2Client } from "google-auth-library";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendWelcomeEmail,
 } from "../../utils/emails.js";
 
 const WORK_ENV = process.env.NODE_ENV;
@@ -179,10 +180,11 @@ class AuthService {
     await authRepo.saveRefreshToken(user._id, refreshToken);
 
     // Send verification OTP only in production (you can loosen this for staging)
-    if (WORK_ENV === "production") {
-      const otp = await authRepo.generateOTP(user._id);
-      await sendVerificationEmail(user.email, otp); // now delegated
-    }
+    
+      const token = await authRepo.generateResetToken(user._id);
+      await sendVerificationEmail(user.email, token); // now delegated
+      await sendWelcomeEmail(user.email, user.first_name);
+    
 
     return {
       user: {
@@ -444,14 +446,16 @@ class AuthService {
    * verifyEmail
    * Validate OTP and mark email verified.
    */
-  async verifyEmail(userId, otp) {
-    const isValid = await authRepo.verifyOTP(userId, otp);
-    if (!isValid && WORK_ENV === "production") {
-      throw createError(400, "Invalid or expired OTP");
+  async verifyEmail( token) {
+    const isValid = await authRepo.verifyResetToken(token);
+    if (!isValid ) {
+      throw createError(400, "Invalid or expired Token");
     }
-
+    const userId = isValid.id
     const user = await authRepo.updateUser(userId, {
       isEmailVerified: true,
+      resetToken: null,
+      resetTokenExpires: null
     });
     if (!user) {
       throw createError(404, "User not found");
@@ -463,17 +467,17 @@ class AuthService {
    * resendVerificationEmail
    * Generates a new OTP and sends it.
    */
-  async resendVerificationEmail(userId) {
-    const user = await authRepo.findUserById(userId);
+  async resendVerificationEmail(email) {
+    const user = await authRepo.findUserByEmail(email);
     if (!user) {
       throw createError(404, "User not found");
     }
     if (user.isEmailVerified) {
       throw createError(400, "Email already verified");
     }
-
-    const otp = await authRepo.generateOTP(user._id);
-    await sendVerificationEmail(user.email, otp);
+    
+    const token = await authRepo.generateResetToken(user.id);
+    await sendVerificationEmail(email, token);
   }
 
   /**

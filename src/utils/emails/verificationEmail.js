@@ -1,81 +1,80 @@
 // emails/verificationEmail.js
-//
-// Generates the "verify your email" message with an OTP code.
-// This file ONLY builds subject/text/html.
-// Delivery happens in emails.js via sendVerificationEmail().
+// Simple, centered, gradient-branded verification email with a single-click verify link.
 
-export function buildVerificationEmail(otp) {
-  if (!otp) {
-    throw new Error("buildVerificationEmail: 'otp' is required");
+export function buildVerificationEmail(token) {
+  if (!token) {
+    throw new Error("buildVerificationEmail: 'token' is required");
   }
 
-  const subject = "Your Articulate verification code";
+  const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${encodeURIComponent(
+    token
+  )}`;
 
-  // Plaintext fallback (for clients that block HTML)
+  // Tailwind theme translation:
+  // bg-gradient-to-r from-sky-950 to bg-sky-900
+  const gradFrom = "#082F49"; // sky-950
+  const gradTo = "#0C4A6E";   // sky-900
+  const cardBg = "#0b1220";
+  const border = "#123047";
+  const textMain = "#E6F1FA";
+  const textSub = "#93B3C8";
+
+  const subject = "Verify your email";
+
+  // Plaintext fallback
   const text = [
-    "Welcome to Articulate 💜",
+    "Welcome!",
     "",
-    `Your verification code is: ${otp}`,
+    "Confirm your email by opening the link below:",
+    verifyUrl,
     "",
-    "This code expires in 15 minutes.",
-    "If you didn't request this, you can safely ignore this email.",
+    "For security, the link may expire soon. If you didn’t request this, you can ignore this email."
   ].join("\n");
 
   // HTML version
-  // Design goals:
-  // - 600px centered card
-  // - Soft dark header bar with gradient hint (subtle brand vibe)
-  // - Code block that's obvious & accessible
-  // - Light reassurance copy
   const html = `
-    <div style="background-color:#0f172a; padding:24px 0; margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%; max-width:600px; background-color:#1e253a; border:1px solid #2f354d; border-radius:12px; overflow:hidden;">
-        <tr>
-          <td style="padding:20px 24px; background:linear-gradient(90deg,#5b21b6 0%,#be123c 100%); color:#fff; font-size:14px; font-weight:600;">
-            <div style="font-size:14px; font-weight:600; color:#fff;">
-              Welcome to Articulate
-            </div>
-            <div style="font-size:12px; font-weight:400; color:rgba(255,255,255,0.8); margin-top:4px;">
-              Verify your email to activate your account
-            </div>
-          </td>
-        </tr>
+  <div style="margin:0;padding:24px 0;background-color:${gradFrom};background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;max-width:600px;margin:0 auto;background:${cardBg};border:1px solid ${border};border-radius:14px;overflow:hidden;text-align:center;">
+      <tr>
+        <td style="padding:22px;background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);color:#fff;">
+          <div style="font-size:16px;font-weight:700;">Welcome</div>
+          <div style="opacity:.85;font-size:12px;margin-top:4px;">Verify your email to activate your account</div>
+        </td>
+      </tr>
 
-        <tr>
-          <td style="padding:24px;">
-            <div style="color:#f8fafc; font-size:15px; font-weight:500; margin-bottom:8px;">
-              Here's your verification code
-            </div>
+      <tr>
+        <td style="padding:28px;">
+          <div style="color:${textMain};font-size:16px;font-weight:600;margin-bottom:8px;">Confirm your email</div>
+          <div style="color:${textSub};font-size:13px;line-height:1.55;margin:0 auto 18px;max-width:440px;">
+            Tap the button to verify your email and finish setting up your account.
+          </div>
 
-            <div style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:16px;">
-              Enter this code in the app to confirm it's really you. The code will expire in 15 minutes.
-            </div>
+          <div style="margin-bottom:20px;">
+            <a href="${verifyUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;text-decoration:none;color:#fff;font-weight:700;background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);">
+              Verify Email
+            </a>
+          </div>
 
-            <div style="display:inline-block; background-color:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px 16px; font-size:20px; font-weight:600; letter-spacing:2px; color:#fff; text-align:center; font-family:monospace;">
-              ${otp}
-            </div>
+          <div style="color:${textSub};font-size:12px;line-height:1.55;word-break:break-all;max-width:480px;margin:0 auto;">
+            Or paste this link into your browser:<br />
+            <a href="${verifyUrl}" style="color:${textSub};text-decoration:underline;">${verifyUrl}</a>
+          </div>
 
-            <div style="color:#94a3b8; font-size:12px; line-height:1.5; margin-top:20px;">
-              If you didn’t request this code, you can safely ignore this email.
-            </div>
+          <hr style="border:none;border-top:1px solid ${border};margin:24px 0;" />
 
-            <hr style="border:none; border-top:1px solid #2f354d; margin:24px 0;" />
+          <div style="color:${textSub};font-size:11px;line-height:1.55;">
+            If you didn’t request this, you can safely ignore this email.
+          </div>
+        </td>
+      </tr>
 
-            <div style="color:#64748b; font-size:11px; line-height:1.5;">
-              You’re receiving this because someone tried to sign up for an Articulate account with this email.
-            </div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="background-color:#0f172a; padding:16px 24px; text-align:center;">
-            <div style="color:#475569; font-size:11px; line-height:1.5;">
-              © ${new Date().getFullYear()} Articulate. All rights reserved.
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
+      <tr>
+        <td style="padding:16px;background:${gradFrom};text-align:center;">
+          <div style="color:#6b9db8;font-size:11px;">© ${new Date().getFullYear()} All rights reserved.</div>
+        </td>
+      </tr>
+    </table>
+  </div>
   `;
 
   return { subject, text, html };

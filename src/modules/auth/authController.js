@@ -228,12 +228,8 @@ class AuthController {
 
   async verifyEmail(req, res, next) {
     try {
-      await body("otp").isNumeric().isLength({ min: 6, max: 6 }).withMessage("OTP must be a 6-digit number").run(req);
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) throw createError(400, errors.array()[0].msg);
-
-      const { otp } = req.body;
-      const user = await authService.verifyEmail(req.user.id, otp);
+      const { token } = req.query;
+      const user = await authService.verifyEmail(token);
 
       res.json({
         success: true,
@@ -254,7 +250,8 @@ class AuthController {
 
   async resendVerificationEmail(req, res, next) {
     try {
-      await authService.resendVerificationEmail(req.user.id);
+      const { email } = req.body
+      await authService.resendVerificationEmail(email);
       res.json({ success: true, message: "Verification email resent successfully" });
     } catch (error) {
       next(error);
@@ -294,14 +291,11 @@ class AuthController {
   }
  async verifyResetPasswordToken(req, res, next) {
   try {
-    
-
     const { token } = req.query;
     if(!token){
       throw createError(404, "Token not found")
     }
     await authService.verifyResetPasswordToken(token);
-
     res.json({ success: true, message: "Token verified successfully" });
   } catch (error) {
     next(error);

@@ -1,9 +1,5 @@
 // emails/passwordResetEmail.js
-//
-// Generates the "reset your password" email.
-// We include a CTA button and a plaintext link fallback.
-// We assume FRONTEND_URL is something like https://app.articulate.ai
-// and that the frontend has a /reset-password route accepting ?token=...
+// Simple, centered, gradient-branded reset email with a clear CTA.
 
 export function buildPasswordResetEmail(token) {
   if (!token) {
@@ -14,90 +10,70 @@ export function buildPasswordResetEmail(token) {
     token
   )}`;
 
-  const subject = "Reset your Articulate password";
+  // Tailwind theme translation:
+  // bg-gradient-to-r from-sky-950 to bg-sky-900
+  const gradFrom = "#082F49"; // sky-950
+  const gradTo = "#0C4A6E";   // sky-900
+  const cardBg = "#0b1220";
+  const border = "#123047";
+  const textMain = "#E6F1FA";
+  const textSub = "#93B3C8";
+
+  const subject = "Reset your password";
 
   const text = [
-    "You requested a password reset for your Articulate account.",
+    "You requested a password reset.",
     "",
     "To continue, open the link below:",
     resetUrl,
     "",
     "This link will expire in 1 hour.",
-    "If you didn’t request a reset, you can ignore this email.",
+    "If you didn’t request this, you can ignore this email."
   ].join("\n");
 
   const html = `
-    <div style="background-color:#0f172a; padding:24px 0; margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%; max-width:600px; background-color:#1e253a; border:1px solid #2f354d; border-radius:12px; overflow:hidden;">
-        <tr>
-          <td style="padding:20px 24px; background:linear-gradient(90deg,#5b21b6 0%,#be123c 100%); color:#fff; font-size:14px; font-weight:600;">
-            <div style="font-size:14px; font-weight:600; color:#fff;">
-              Password Reset
-            </div>
-            <div style="font-size:12px; font-weight:400; color:rgba(255,255,255,0.8); margin-top:4px;">
-              You asked to reset your Articulate password
-            </div>
-          </td>
-        </tr>
+  <div style="margin:0;padding:24px 0;background-color:${gradFrom};background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;max-width:600px;margin:0 auto;background:${cardBg};border:1px solid ${border};border-radius:14px;overflow:hidden;text-align:center;">
+      <tr>
+        <td style="padding:22px;background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);color:#fff;">
+          <div style="font-size:16px;font-weight:700;">Password Reset</div>
+          <div style="opacity:.85;font-size:12px;margin-top:4px;">You asked to reset your password</div>
+        </td>
+      </tr>
 
-        <tr>
-          <td style="padding:24px;">
-            <div style="color:#f8fafc; font-size:15px; font-weight:500; margin-bottom:8px;">
-              Reset your password
-            </div>
+      <tr>
+        <td style="padding:28px;">
+          <div style="color:${textMain};font-size:16px;font-weight:600;margin-bottom:8px;">Reset your password</div>
+          <div style="color:${textSub};font-size:13px;line-height:1.55;margin:0 auto 18px;max-width:440px;">
+            Click the button below to choose a new password. This link expires in 1 hour.
+          </div>
 
-            <div style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:16px;">
-              We received a request to reset your password. Click the button below to choose a new one.
-              This link will expire in 1 hour.
-            </div>
+          <div style="margin-bottom:20px;">
+            <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;text-decoration:none;color:#fff;font-weight:700;background-image:linear-gradient(90deg, ${gradFrom} 0%, ${gradTo} 100%);">
+              Reset Password
+            </a>
+          </div>
 
-            <div style="text-align:center; margin-bottom:20px;">
-              <a
-                href="${resetUrl}"
-                style="
-                  display:inline-block;
-                  background:linear-gradient(90deg,#5b21b6 0%,#be123c 100%);
-                  color:#fff;
-                  font-size:14px;
-                  font-weight:600;
-                  text-decoration:none;
-                  padding:12px 16px;
-                  border-radius:8px;
-                  box-shadow:0 10px 25px rgba(190,18,60,0.3);
-                "
-              >
-                Reset Password
-              </a>
-            </div>
+          <div style="color:${textSub};font-size:12px;line-height:1.55;word-break:break-all;max-width:480px;margin:0 auto;">
+            Or paste this link into your browser:<br />
+            <a href="${resetUrl}" style="color:${textSub};text-decoration:underline;">${resetUrl}</a>
+          </div>
 
-            <div style="color:#94a3b8; font-size:12px; line-height:1.5; word-break:break-all;">
-              Or paste this link into your browser:<br/>
-              <a href="${resetUrl}" style="color:#94a3b8; text-decoration:underline; word-break:break-all;">
-                ${resetUrl}
-              </a>
-            </div>
+          <hr style="border:none;border-top:1px solid ${border};margin:24px 0;" />
 
-            <div style="color:#94a3b8; font-size:12px; line-height:1.5; margin-top:20px;">
-              If you didn’t request this, you can ignore this email. Your password won’t change.
-            </div>
+          <div style="color:${textSub};font-size:11px;line-height:1.55;">
+            If you didn’t request this, you can ignore this email. Your password won’t change.
+          </div>
+        </td>
+      </tr>
 
-            <hr style="border:none; border-top:1px solid #2f354d; margin:24px 0;" />
-
-            <div style="color:#64748b; font-size:11px; line-height:1.5;">
-              This email was sent because a password reset was requested for your Articulate account.
-            </div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="background-color:#0f172a; padding:16px 24px; text-align:center;">
-            <div style="color:#475569; font-size:11px; line-height:1.5;">
-              © ${new Date().getFullYear()} Articulate. All rights reserved.
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
+      <tr>
+        <td style="padding:16px;background:${gradFrom};text-align:center;">
+          <div style="color:#6b9db8;font-size:11px;">© ${new Date().getFullYear()} All rights reserved.</div>
+        </td>
+      </tr>
+    </table>
+  </div>
   `;
 
   return { subject, text, html };

@@ -39,13 +39,13 @@ const googleAuthLimiter = rateLimit({
 // Public routes
 
 router.post("/register", registerLimiter, authController.register); // now supports classic + google_credential
-router.post("/verify-email", authenticateToken, authController.verifyEmail);
+router.get("/verify-email", authController.verifyEmail);
 router.post("/login", loginLimiter, authController.login); // now supports classic + google_credential
 router.post("/refresh-token", authController.refreshToken);
 router.post("/forgot-password", forgotPasswordLimiter, authController.forgotPassword);
 router.post("/reset-password", authController.resetPassword);
 router.get("/verify-reset-password-token", authController.verifyResetPasswordToken);
-router.post("/resend-verification-email", authenticateToken, authController.resendVerificationEmail);
+router.post("/resend-verification-email", authController.resendVerificationEmail);
 
 
 // Legacy/redirect-based Google OAuth (passport)
