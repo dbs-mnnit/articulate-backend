@@ -71,19 +71,16 @@ class AuthService {
   async loginWithGoogleProfile(googleProfile, timezone) {
     const normalizedTz = isValidIanaTimeZone(timezone) ? timezone : undefined;
 
-    const user = await authRepo.findOrCreateUserByEmail(
-      googleProfile.email,
-      {
-        first_name: googleProfile.first_name,
-        last_name: googleProfile.last_name,
-        email: googleProfile.email,
-        password: null, // Google users don't have local password by default
-        profile_picture: googleProfile.profile_picture,
-        isEmailVerified: googleProfile.isEmailVerified,
-        role: "user",
-        timezone: normalizedTz || "UTC",
-      }
-    );
+    const user = await authRepo.findOrCreateUserByEmail(googleProfile.email, {
+      first_name: googleProfile.first_name,
+      last_name: googleProfile.last_name,
+      email: googleProfile.email,
+      password: null, // Google users don't have local password by default
+      profile_picture: googleProfile.profile_picture,
+      isEmailVerified: googleProfile.isEmailVerified,
+      role: "user",
+      timezone: normalizedTz || "UTC",
+    });
 
     if (!user.isActive) {
       throw createError(401, "Account is inactive");
@@ -96,10 +93,7 @@ class AuthService {
     }
 
     // If we got a valid tz and user's tz is default/empty, set it
-    if (
-      normalizedTz &&
-      (user.timezone === "UTC" || !user.timezone)
-    ) {
+    if (normalizedTz && (user.timezone === "UTC" || !user.timezone)) {
       await authRepo.updateUser(user._id, { timezone: normalizedTz });
       user.timezone = normalizedTz;
     }
@@ -149,10 +143,7 @@ class AuthService {
       const googleProfile = await this.verifyGoogleCredential(
         google_credential
       );
-      return await this.loginWithGoogleProfile(
-        googleProfile,
-        timezone
-      );
+      return await this.loginWithGoogleProfile(googleProfile, timezone);
     }
 
     // Email/password signup path
@@ -180,11 +171,14 @@ class AuthService {
     await authRepo.saveRefreshToken(user._id, refreshToken);
 
     // Send verification OTP only in production (you can loosen this for staging)
-    
+
+    try {
       const token = await authRepo.generateResetToken(user._id);
       await sendVerificationEmail(user.email, token); // now delegated
       await sendWelcomeEmail(user.email, user.first_name);
-    
+    } catch (error) {
+      console.log("register error", error);
+    }
 
     return {
       user: {
@@ -214,20 +208,14 @@ class AuthService {
       const googleProfile = await this.verifyGoogleCredential(
         google_credential
       );
-      return await this.loginWithGoogleProfile(
-        googleProfile,
-        timezone
-      );
+      return await this.loginWithGoogleProfile(googleProfile, timezone);
     }
 
     // Email/password branch
     const user = await authRepo.findUserByEmail(email);
 
     if (!user || !user.isActive) {
-      throw createError(
-        401,
-        "Invalid credentials or account inactive"
-      );
+      throw createError(401, "Invalid credentials or account inactive");
     }
 
     // Google-only account trying password login
@@ -247,13 +235,8 @@ class AuthService {
     }
 
     // adopt timezone if provided and user is still default
-    const normalizedTz = isValidIanaTimeZone(timezone)
-      ? timezone
-      : undefined;
-    if (
-      normalizedTz &&
-      (user.timezone === "UTC" || !user.timezone)
-    ) {
+    const normalizedTz = isValidIanaTimeZone(timezone) ? timezone : undefined;
+    if (normalizedTz && (user.timezone === "UTC" || !user.timezone)) {
       await authRepo.updateUser(user._id, { timezone: normalizedTz });
       user.timezone = normalizedTz;
     }
@@ -287,16 +270,9 @@ class AuthService {
       throw createError(401, "Account is inactive");
     }
 
-    const accessToken = authRepo.generateAccessToken(
-      userFromPassport
-    );
-    const refreshToken = authRepo.generateRefreshToken(
-      userFromPassport
-    );
-    await authRepo.saveRefreshToken(
-      userFromPassport._id,
-      refreshToken
-    );
+    const accessToken = authRepo.generateAccessToken(userFromPassport);
+    const refreshToken = authRepo.generateRefreshToken(userFromPassport);
+    await authRepo.saveRefreshToken(userFromPassport._id, refreshToken);
 
     return {
       user: {
@@ -336,28 +312,17 @@ class AuthService {
       const user = await authRepo.findUserById(decoded.id);
       if (
         !user ||
-        !(await authRepo.verifyRefreshToken(
-          decoded.id,
-          refreshToken
-        ))
+        !(await authRepo.verifyRefreshToken(decoded.id, refreshToken))
       ) {
         throw createError(401, "Invalid refresh token");
       }
 
       // Rotate tokens
-      const newAccessToken =
-        authRepo.generateAccessToken(user);
-      const newRefreshToken =
-        authRepo.generateRefreshToken(user);
+      const newAccessToken = authRepo.generateAccessToken(user);
+      const newRefreshToken = authRepo.generateRefreshToken(user);
 
-      await authRepo.saveRefreshToken(
-        user._id,
-        newRefreshToken
-      );
-      await authRepo.removeRefreshToken(
-        user._id,
-        refreshToken
-      );
+      await authRepo.saveRefreshToken(user._id, newRefreshToken);
+      await authRepo.removeRefreshToken(user._id, refreshToken);
 
       return {
         user: {
@@ -373,10 +338,7 @@ class AuthService {
         refreshToken: newRefreshToken,
       };
     } catch (err) {
-      throw createError(
-        401,
-        "Invalid or expired refresh token"
-      );
+      throw createError(401, "Invalid or expired refresh token");
     }
   }
 
@@ -404,10 +366,7 @@ class AuthService {
           "refresh",
           new Date(decoded.exp * 1000)
         );
-        await authRepo.removeRefreshToken(
-          userId,
-          refreshToken
-        );
+        await authRepo.removeRefreshToken(userId, refreshToken);
       }
     }
   }
@@ -446,16 +405,16 @@ class AuthService {
    * verifyEmail
    * Validate OTP and mark email verified.
    */
-  async verifyEmail( token) {
+  async verifyEmail(token) {
     const isValid = await authRepo.verifyResetToken(token);
-    if (!isValid ) {
+    if (!isValid) {
       throw createError(400, "Invalid or expired Token");
     }
-    const userId = isValid.id
+    const userId = isValid.id;
     const user = await authRepo.updateUser(userId, {
       isEmailVerified: true,
       resetToken: null,
-      resetTokenExpires: null
+      resetTokenExpires: null,
     });
     if (!user) {
       throw createError(404, "User not found");
@@ -475,7 +434,7 @@ class AuthService {
     if (user.isEmailVerified) {
       throw createError(400, "Email already verified");
     }
-    
+
     const token = await authRepo.generateResetToken(user.id);
     await sendVerificationEmail(email, token);
   }
@@ -490,9 +449,7 @@ class AuthService {
       throw createError(404, "User not found");
     }
 
-    const resetToken = await authRepo.generateResetToken(
-      user._id
-    );
+    const resetToken = await authRepo.generateResetToken(user._id);
     await sendPasswordResetEmail(user.email, resetToken);
   }
 
@@ -503,16 +460,11 @@ class AuthService {
   async resetPassword(token, newPassword) {
     const user = await authRepo.verifyResetToken(token);
     if (!user) {
-      throw createError(
-        400,
-        "Invalid or expired reset token"
-      );
+      throw createError(400, "Invalid or expired reset token");
     }
     // const user = await authRepo.findUserByEmail(token)
 
-    const hashedPassword = await authRepo.hashPassword(
-      newPassword
-    );
+    const hashedPassword = await authRepo.hashPassword(newPassword);
     await authRepo.updateUser(user._id, {
       password: hashedPassword,
       resetToken: null,
@@ -523,10 +475,7 @@ class AuthService {
   async verifyResetPasswordToken(token) {
     const user = await authRepo.verifyResetToken(token);
     if (!user) {
-      throw createError(
-        400,
-        "Invalid or expired reset token"
-      );
+      throw createError(400, "Invalid or expired reset token");
     }
     return;
   }
@@ -554,10 +503,7 @@ class AuthService {
       }
     }
 
-    if (
-      filteredData.timezone &&
-      !isValidIanaTimeZone(filteredData.timezone)
-    ) {
+    if (filteredData.timezone && !isValidIanaTimeZone(filteredData.timezone)) {
       throw createError(400, "Invalid IANA timezone");
     }
 
@@ -577,16 +523,12 @@ class AuthService {
     } else if (updateData.profile_picture !== undefined) {
       // explicit remove/reset or keep value
       filteredData.profile_picture =
-        updateData.profile_picture === "" ||
-        updateData.profile_picture === null
+        updateData.profile_picture === "" || updateData.profile_picture === null
           ? null
           : updateData.profile_picture;
     }
 
-    const user = await authRepo.updateUser(
-      userId,
-      filteredData
-    );
+    const user = await authRepo.updateUser(userId, filteredData);
     if (!user) {
       throw createError(404, "User not found");
     }
@@ -633,9 +575,7 @@ class AuthService {
       throw createError(401, "Invalid current password");
     }
 
-    const hashedPassword = await authRepo.hashPassword(
-      newPassword
-    );
+    const hashedPassword = await authRepo.hashPassword(newPassword);
     await authRepo.updateUser(userId, {
       password: hashedPassword,
     });
